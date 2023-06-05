@@ -20,7 +20,7 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +48,22 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    # Ref: https://stackoverflow.com/questions/39969045/parsing-yann-lecuns-mnist-idx-file-format
+
+    with gzip.open(f'{image_filename}', 'rb') as f:
+        magic, size = struct.unpack(">II", f.read(8))
+        nrows, ncols = struct.unpack(">II", f.read(8))
+        x = np.frombuffer(f.read(), dtype=np.dtype(np.uint8).newbyteorder('>'))
+        x = x.reshape((size, nrows * ncols))
+        x = x.astype(np.float32)
+        x = x / 255.0
+
+    with gzip.open(f'{label_filename}','rb') as f:
+        magic, size = struct.unpack(">II", f.read(8))
+        y = np.frombuffer(f.read(), dtype=np.dtype(np.uint8).newbyteorder('>'))
+        y = y.reshape((size,)) # (Optional)
+
+    return x, y
     ### END YOUR CODE
 
 
@@ -68,7 +83,15 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    batch_size = Z.shape[0]
+    batch_loss = list()
+    for row_index, row in enumerate(Z):
+        zy = row[y[row_index]]
+        zi = row
+        loss = np.log(np.sum(np.exp(zi - zy)))
+        batch_loss.append(loss)
+
+    return np.sum(batch_loss) / batch_size
     ### END YOUR CODE
 
 
@@ -91,7 +114,23 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    total_size = X.shape[0]
+    n = np.max(y) + 1
+    identity = np.eye(n)
+    last_index = 0
+
+    for batch_index in range(batch, total_size+batch, batch):
+        batch_X = X[last_index: batch_index, :]
+        batch_y = y[last_index: batch_index]
+        last_index = batch_index
+        m = batch_X.shape[0]
+
+        Z = np.exp(np.dot(batch_X, theta)) / np.sum(np.exp(np.dot(batch_X, theta)), axis=1).reshape((m, 1))
+        ey = identity[batch_y]
+
+        grad = (1/m) * np.dot(batch_X.transpose(), (Z - ey))
+
+        theta -= lr * grad
     ### END YOUR CODE
 
 
@@ -118,7 +157,32 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    def relu(x):
+        return np.maximum(0, x)
+
+    total_size = X.shape[0]
+    n = np.max(y) + 1
+    identity = np.eye(n)
+    last_index = 0
+
+    for batch_index in range(batch, total_size+batch, batch):
+        batch_X = X[last_index: batch_index, :]
+        batch_y = y[last_index: batch_index]
+        last_index = batch_index
+        m = batch_X.shape[0]
+
+        z1 = relu(np.dot(batch_X, W1))
+
+        ey = identity[batch_y]
+        g2 = (np.exp(np.dot(z1, W2)) / np.sum(np.exp(np.dot(z1, W2)), axis=1).reshape((m, 1))) - ey
+        g1 = np.multiply((z1 > 0).astype(np.int8), np.dot(g2, W2.transpose()))
+
+        grad_w1 = 1/m * np.dot(batch_X.transpose(), g1)
+        grad_w2 = 1/m * np.dot(z1.transpose(), g2)
+
+        W1 -= lr * grad_w1
+        W2 -= lr * grad_w2
+
     ### END YOUR CODE
 
 
